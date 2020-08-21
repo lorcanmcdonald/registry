@@ -1,0 +1,39 @@
+#!/bin/bash
+set -euo pipefail
+IFS=$'\n\t'
+
+dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/.."
+
+docker_build() {
+  name=$1
+  echo "$name"
+  commit_id=$(git rev-parse HEAD)
+
+  if [[ -e "$dir/services/$name/Dockerfile" ]]; then
+    docker build \
+      --build-arg "commit_id=$commit_id" \
+      -t "lorcan/$name:$commit_id" \
+      -t "lorcan/$name:latest" \
+      -t "lorcan/$name:x86" \
+      -t "registry.easeof.com/lorcan/$name:$commit_id" \
+      -t "registry.easeof.com/lorcan/$name:latest" \
+      -t "registry.easeof.com/lorcan/$name:x86" \
+      "$dir/services/$name"
+  else
+    >&2 echo "Not deploying $name"
+    >&2 echo "$dir/services/$name/Dockerfile does not exist"
+  fi
+
+  }
+
+IFS=" "
+read -r -a selected_services <<< "${*:-" \
+    poddle-api \
+    poddle-schema-update \
+    "}"
+IFS=$'\n\t'
+
+for service in "${selected_services[@]}"; do
+  echo "Building $service"
+  docker_build "$service"
+done

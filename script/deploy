@@ -1,0 +1,25 @@
+#!/bin/bash
+set -euo pipefail
+IFS=$'\n\t'
+
+dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/.."
+
+"$dir/script/update" "$@"
+
+kubernetes_deploy() {
+  service=$1
+  cluster_address=$(kubectl cluster-info  | grep "Kubernetes.*master" | sed 's/.*https/https/')
+  echo "Deploying $service to $cluster_address"
+  kubectl --namespace=registry apply -f "$dir/services/$service/infrastructure"
+}
+
+IFS=" "
+read -r -a selected_services <<< "${*:-" \
+    registry
+    "}"
+IFS=$'\n\t'
+
+for service in "${selected_services[@]}"; do
+  echo "Deploy $service"
+  kubernetes_deploy "$service"
+done
